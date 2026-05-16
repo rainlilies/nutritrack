@@ -805,7 +805,10 @@ function calcEntryMacro(entry, macro) {
 function entryDisplayAmount(entry) {
   const unit = entry.unit || 'g';
   if (unit === 'pcs') return `${entry.grams} pc${entry.grams !== 1 ? 's' : ''}`;
-  if (unit === 'kcal') return `${entry.grams || entry.customCal} kcal`;
+  if (unit === 'kcal') {
+    const kcalAmt = entry.foodId ? entry.grams : (entry.customCal || entry.grams);
+    return `${kcalAmt} kcal`;
+  }
   return `${entry.grams}g`;
 }
 
@@ -901,9 +904,10 @@ function drawCalRing(eaten, goal) {
   ctx.clearRect(0, 0, size, size);
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.strokeStyle = '#2a2d35'; ctx.lineWidth = lw; ctx.stroke();
-  const pct = Math.min(1, eaten / goal);
+  const pct = eaten / goal;
+  const fillPct = Math.min(1, pct);
   const color = pct > 1 ? '#f07864' : '#c8f064';
-  ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+  ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + fillPct * Math.PI * 2);
   ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.stroke();
   ctx.fillStyle = '#f0ede8'; ctx.font = `bold ${14}px DM Sans`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1079,20 +1083,33 @@ function logFood() {
 
     // Optionally save to DB
     if (document.getElementById('custom-save-db').checked) {
-      const serving = unit === 'pcs' ? grams : 100;
-      const factor = unit === 'pcs' ? (grams / serving) : (100 / Math.max(grams,1));
-      state.db.push({
-        id: uid(), name,
-        icon: '✏️',
-        cal: Math.round(cal * factor),
-        protein: Math.round(protein * factor * 10) / 10,
-        carbs: Math.round(carbs * factor * 10) / 10,
-        fat: Math.round(fat * factor * 10) / 10,
-        fiber: 0, sugar: 0, sodium: 0, cholesterol: 0,
-        type: unit === 'pcs' ? 'pcs' : 'g',
-        serving,
-        notes: 'Added from custom entry'
-      });
+      if (unit === 'pcs') {
+        // For pieces: entered cal/macros are for `grams` pieces total → divide by grams to get per-piece
+        const pieces = Math.max(grams, 1);
+        state.db.push({
+          id: uid(), name, icon: '✏️',
+          cal: Math.round(cal / pieces),
+          protein: Math.round((protein / pieces) * 100) / 100,
+          carbs: Math.round((carbs / pieces) * 10) / 10,
+          fat: Math.round((fat / pieces) * 10) / 10,
+          fiber: 0, sugar: 0, sodium: 0, cholesterol: 0,
+          type: 'pcs', serving: 1,
+          notes: 'Added from custom entry'
+        });
+      } else {
+        // For grams: entered cal/macros are for `grams` g total → scale to per-100g
+        const factor = 100 / Math.max(grams, 1);
+        state.db.push({
+          id: uid(), name, icon: '✏️',
+          cal: Math.round(cal * factor),
+          protein: Math.round(protein * factor * 100) / 100,
+          carbs: Math.round(carbs * factor * 10) / 10,
+          fat: Math.round(fat * factor * 10) / 10,
+          fiber: 0, sugar: 0, sodium: 0, cholesterol: 0,
+          type: 'g', serving: 100,
+          notes: 'Added from custom entry'
+        });
+      }
     }
   }
 
@@ -1433,7 +1450,7 @@ function savePlanFood() {
   const fid = document.getElementById('plan-food-select').value;
   const grams = parseFloat(document.getElementById('plan-grams').value);
   const unit = document.getElementById('plan-unit').value;
-  if (!grams) return;
+  if (!fid || !grams) return;  // require a food selection
   if (!state.plan[day]) state.plan[day] = [];
 
   const editIdx = document.getElementById('plan-edit-idx').value;
@@ -1463,7 +1480,7 @@ function renderDB() {
       <div class="db-item-icon">${food.icon || '🍽️'}</div>
       <div class="db-item-info">
         <div class="db-item-name">${food.name}</div>
-        <div class="db-item-macros">${perLabel} &bull; ${food.cal||0}kcal &bull; P:${food.protein||0}g &bull; C:${food.carbs||0}g &bull; F:${food.fat||0}g</div>
+        <div class="db-item-macros">${perLabel} &bull; ${food.cal||0}kcal &bull; P:${(food.protein||0).toFixed(2)}g &bull; C:${food.carbs||0}g &bull; F:${food.fat||0}g</div>
       </div>
       <div class="db-item-actions" onclick="event.stopPropagation()">
         <button class="btn btn-sm" style="padding:6px 10px" onclick="editDbFood('${food.id}')">Edit</button>
@@ -1621,7 +1638,7 @@ function openDbDetail(id) {
   document.getElementById('d-sub').textContent = perLabel;
   document.getElementById('d-macros').innerHTML = `
     <div class="detail-macro-pill"><span class="val" style="color:var(--accent)">${food.cal||0}</span><span class="lbl">kcal</span></div>
-    <div class="detail-macro-pill"><span class="val" style="color:var(--accent2)">${food.protein||0}g</span><span class="lbl">Protein</span></div>
+    <div class="detail-macro-pill"><span class="val" style="color:var(--accent2)">${(food.protein||0).toFixed(2)}g</span><span class="lbl">Protein</span></div>
     <div class="detail-macro-pill"><span class="val" style="color:#f0c864">${food.carbs||0}g</span><span class="lbl">Carbs</span></div>
     <div class="detail-macro-pill"><span class="val" style="color:var(--accent3)">${food.fat||0}g</span><span class="lbl">Fat</span></div>
   `;
