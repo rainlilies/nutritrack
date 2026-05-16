@@ -262,9 +262,10 @@
 
   .compare-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .compare-row:last-child { border-bottom: none; }
-  .compare-row .food-name { color: var(--text2); flex: 1; }
-  .compare-row .planned { color: var(--accent2); font-weight: 500; min-width: 60px; text-align: right; }
-  .compare-row .actual { color: var(--accent); font-weight: 500; min-width: 60px; text-align: right; }
+  .compare-row .food-name { color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .compare-row .amount { color: var(--text3); font-weight: 500; min-width: 44px; text-align: right; font-size: 11px; }
+  .compare-row .planned { color: var(--accent2); font-weight: 500; min-width: 52px; text-align: right; }
+  .compare-row .actual { color: var(--accent); font-weight: 500; min-width: 52px; text-align: right; }
 
   .db-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
   .db-item:last-child { border-bottom: none; }
@@ -957,7 +958,7 @@ function renderCompare(log, plan, d) {
     ...plan.map(e => e.foodId || ('__custom_'+e.customName))
   ]);
   let html = `<div class="compare-row" style="font-size:11px;font-weight:600;color:var(--text3)">
-    <span class="food-name">FOOD</span><span class="planned">PLANNED</span><span class="actual">ACTUAL</span>
+    <span class="food-name">FOOD</span><span class="amount">AMT</span><span class="planned">PLANNED</span><span class="actual">ACTUAL</span>
   </div>`;
   allFoods.forEach(fid => {
     const food = fid && !fid.startsWith('__') ? state.db.find(f => f.id === fid) : null;
@@ -966,8 +967,12 @@ function renderCompare(log, plan, d) {
     const lEntry = log.find(e => (e.foodId || '__custom_'+(e.customName)) === fid);
     const pCal = pEntry ? Math.round(calcEntryKcal(pEntry)) : 0;
     const lCal = lEntry ? Math.round(calcEntryKcal(lEntry)) : 0;
+    const pAmt = pEntry ? entryDisplayAmount(pEntry) : '–';
+    const lAmt = lEntry ? entryDisplayAmount(lEntry) : '–';
+    const amt = pAmt !== '–' ? pAmt : lAmt;
     html += `<div class="compare-row">
-      <span class="food-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+      <span class="food-name">${name}</span>
+      <span class="amount">${amt}</span>
       <span class="planned">${pEntry ? pCal+'cal' : '–'}</span>
       <span class="actual">${lEntry ? lCal+'cal' : '–'}</span>
     </div>`;
