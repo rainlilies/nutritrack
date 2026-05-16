@@ -244,16 +244,16 @@
   canvas { display: block; }
 
   .date-strip {
-    display: flex; gap: 8px;
+    display: flex; gap: 6px;
     padding: 4px 16px 16px;
     overflow-x: auto; scrollbar-width: none;
   }
   .date-strip::-webkit-scrollbar { display: none; }
   .date-chip {
-    flex-shrink: 0; display: flex; flex-direction: column;
-    align-items: center; gap: 4px; padding: 8px 12px;
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 4px; padding: 8px 4px;
     border-radius: 12px; border: 1px solid var(--border);
-    background: var(--surface); cursor: pointer; transition: all 0.2s; min-width: 48px;
+    background: var(--surface); cursor: pointer; transition: all 0.2s; min-width: 0;
   }
   .date-chip.selected { background: var(--accent); border-color: var(--accent); color: #0e0f11; }
   .date-chip .day-name { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: inherit; }
