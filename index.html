@@ -706,20 +706,43 @@ function load() {
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // ═══════════════════════ SEED DATA ═══════════════════════
+// For type:'g'   → cal/protein/etc are PER 100g
+// For type:'pcs' → cal/protein/etc are PER PIECE (serving = grams per piece, for display only)
 function seedDB() {
   state.db = [
-    { id: 'potato',   name: 'Raw Potatoes',          icon: '🥔', cal: 77,   protein: 2,    carbs: 17.5, fat: 0.1, fiber: 2.2, sugar: 0.8, sodium: 6,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'Raw weight. Calorie count drops slightly when boiled.' },
-    { id: 'bellp_g',  name: 'Green Bell Pepper',     icon: '🫑', cal: 20,   protein: 0.9,  carbs: 4.6,  fat: 0.2, fiber: 1.7, sugar: 2.4, sodium: 3,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'Very low calorie, high vitamin C.' },
-    { id: 'apple',    name: 'Red Apple',              icon: '🍎', cal: 52,   protein: 0.3,  carbs: 14,   fat: 0.2, fiber: 2.4, sugar: 10,  sodium: 1,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'Average apple ~180g.' },
-    { id: 'carrot',   name: 'Carrot',                 icon: '🥕', cal: 41,   protein: 0.9,  carbs: 9.6,  fat: 0.2, fiber: 2.8, sugar: 4.7, sodium: 69,  cholesterol: 0,   type: 'g',   serving: 100, notes: 'Rich in beta-carotene.' },
-    { id: 'cucumber', name: 'Cucumber',               icon: '🥒', cal: 15,   protein: 0.7,  carbs: 3.6,  fat: 0.1, fiber: 0.5, sugar: 1.7, sodium: 2,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'Very hydrating, excellent low-cal snack.' },
-    { id: 'cheese',   name: 'Kraft Original Sliced Cheese', icon: '🧀', cal: 60, protein: 3.5, carbs: 1.5, fat: 4.5, fiber: 0,  sugar: 1,   sodium: 260, cholesterol: 15,  type: 'pcs', serving: 19,  notes: '1 slice ≈ 19g. ~60 kcal per slice.' },
-    { id: 'protein',  name: 'Protein Powder (BulkSupplements)', icon: '💪', cal: 39, protein: 8.5, carbs: 0.5, fat: 0.3, fiber: 0, sugar: 0, sodium: 45, cholesterol: 20, type: 'g', serving: 10, notes: 'Per 10g serving. Unflavored whey isolate.' },
-    { id: 'oil',      name: 'Vegetable Oil (tsp)',    icon: '🫙', cal: 40,   protein: 0,    carbs: 0,    fat: 4.5, fiber: 0,   sugar: 0,   sodium: 0,   cholesterol: 0,   type: 'pcs', serving: 5,   notes: '1 tsp ≈ 5ml ≈ 40 kcal.' },
-    { id: 'almonds',  name: 'Almonds',                icon: '🌰', cal: 579,  protein: 21,   carbs: 22,   fat: 50,  fiber: 12.5,sugar: 4.4, sodium: 1,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'Energy-dense. Keep portions in check.' },
-    { id: 'strawberry',name: 'Strawberry',            icon: '🍓', cal: 32,   protein: 0.7,  carbs: 7.7,  fat: 0.3, fiber: 2,   sugar: 4.9, sodium: 1,   cholesterol: 0,   type: 'g',   serving: 100, notes: 'High in vitamin C and antioxidants.' },
-    { id: 'olives',   name: 'Coopolovia Pitted Black Olives', icon: '🫒', cal: 115, protein: 0.8, carbs: 6, fat: 10.9, fiber: 3.2, sugar: 0, sodium: 735, cholesterol: 0, type: 'g', serving: 100, notes: 'Pitted. Rich in healthy fats.' },
+    { id: 'potato',    name: 'Raw Potatoes',                    icon: '🥔', cal: 75,    protein: 1.90, carbs: 17.5, fat: 0.1,  fiber: 2.2, sugar: 0.9,  sodium: 6,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'Raw weight. Calorie count drops slightly when boiled.' },
+    { id: 'bellp_g',   name: 'Green Bell Pepper',               icon: '🫑', cal: 20,    protein: 0.9,  carbs: 4.6,  fat: 0.2,  fiber: 1.7, sugar: 2.4,  sodium: 3,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'Very low calorie, high vitamin C.' },
+    { id: 'apple',     name: 'Red Apple',                       icon: '🍎', cal: 52,    protein: 0.3,  carbs: 14,   fat: 0.2,  fiber: 2.4, sugar: 10,   sodium: 1,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'Average apple ~180g.' },
+    { id: 'carrot',    name: 'Carrot',                          icon: '🥕', cal: 41,    protein: 0.9,  carbs: 9.6,  fat: 0.2,  fiber: 2.8, sugar: 4.7,  sodium: 69,   cholesterol: 0,  type: 'g',   serving: 100, notes: 'Rich in beta-carotene.' },
+    { id: 'cucumber',  name: 'Cucumber',                        icon: '🥒', cal: 15,    protein: 0.7,  carbs: 3.6,  fat: 0.1,  fiber: 0.5, sugar: 1.7,  sodium: 2,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'Very hydrating, excellent low-cal snack.' },
+    // pcs: cal/macros = per 1 slice
+    { id: 'cheese',    name: 'Kraft Original Sliced Cheese',    icon: '🧀', cal: 50,    protein: 3.20, carbs: 1.5,  fat: 4.5,  fiber: 0,   sugar: 1,    sodium: 260,  cholesterol: 15, type: 'pcs', serving: 19,  notes: '1 slice ≈ 19g. 50 kcal per slice.' },
+    // type:'g' — cal/macros stored per 100g; serving=10 means 1 scoop=10g → 36.66 kcal, 8.66g protein
+    { id: 'protein',   name: 'Protein Powder (BulkSupplements)', icon: '💪', cal: 366.6, protein: 86.60, carbs: 5,    fat: 3,    fiber: 0,   sugar: 0,    sodium: 450,  cholesterol: 200,type: 'g',   serving: 10,  notes: 'Per 10g scoop: 36.66 kcal, 8.66g protein. Unflavored whey isolate.' },
+    // pcs: cal/macros = per 1 tsp
+    { id: 'oil',       name: 'Vegetable Oil (tsp)',              icon: '🫙', cal: 40,    protein: 0,    carbs: 0,    fat: 4.5,  fiber: 0,   sugar: 0,    sodium: 0,    cholesterol: 0,  type: 'pcs', serving: 5,   notes: '1 tsp ≈ 5ml ≈ 40 kcal.' },
+    { id: 'almonds',   name: 'Almonds',                         icon: '🌰', cal: 579,   protein: 21,   carbs: 22,   fat: 50,   fiber: 12.5,sugar: 4.4,  sodium: 1,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'Energy-dense. Keep portions in check.' },
+    { id: 'strawberry',name: 'Strawberry',                      icon: '🍓', cal: 32,    protein: 0.7,  carbs: 7.7,  fat: 0.3,  fiber: 2,   sugar: 4.9,  sodium: 1,    cholesterol: 0,  type: 'g',   serving: 100, notes: 'High in vitamin C and antioxidants.' },
+    { id: 'olives',    name: 'Coopolovia Pitted Black Olives',  icon: '🫒', cal: 115,   protein: 0.8,  carbs: 6,    fat: 10.9, fiber: 3.2, sugar: 0,    sodium: 735,  cholesterol: 0,  type: 'g',   serving: 100, notes: 'Pitted. Rich in healthy fats.' },
   ];
+}
+
+// ═══════════════════════ PATCH SEEDED FOODS ═══════════════════════
+// Fixes seeded food values in existing localStorage saves without wiping user data.
+function patchDB() {
+  const patches = {
+    'potato':  { cal: 75,    protein: 1.90, sugar: 0.9 },
+    'cheese':  { cal: 50,    protein: 3.20, type: 'pcs', serving: 19 },
+    'protein': { cal: 366.6, protein: 86.60, type: 'g', serving: 10 },
+  };
+  let changed = false;
+  state.db.forEach(food => {
+    if (patches[food.id]) {
+      Object.assign(food, patches[food.id]);
+      changed = true;
+    }
+  });
+  if (changed) save();
 }
 
 function seedPlan() {
@@ -737,24 +760,28 @@ function seedPlan() {
 }
 
 // ═══════════════════════ CALORIE CALCULATION ═══════════════════════
-// Entry can be from log or plan. Has foodId (optional), grams, unit, customCal, etc.
+// type:'g'   → food.cal/macros are per 100g  → scale by (grams / 100)
+// type:'pcs' → food.cal/macros are per piece → scale by count (entry.grams = number of pieces)
+// unit:'kcal'→ entry.grams IS the calorie value directly (flat custom kcal)
 function calcEntryKcal(entry) {
   if (!entry.foodId) {
-    // Custom entry
-    if (entry.unit === 'kcal') return entry.customCal || 0;
     return entry.customCal || 0;
   }
   const food = state.db.find(f => f.id === entry.foodId);
   if (!food) return 0;
 
-  const unit = entry.unit || 'g';
-  if (unit === 'kcal') return entry.grams; // grams field holds kcal directly in this case
+  const unit = entry.unit || food.type || 'g';
+  if (unit === 'kcal') return entry.grams;
   if (unit === 'pcs') {
-    // grams = number of pieces; serving = grams per piece
-    const perPiece = food.cal * (food.serving / 100);
-    return perPiece * entry.grams;
+    // food.cal = kcal per 1 piece; entry.grams = number of pieces
+    return (food.cal || 0) * entry.grams;
   }
-  // default: grams
+  if (food.type === 'pcs') {
+    // Food is per-piece but entry was logged in grams → convert via serving size
+    const servingG = food.serving || 1;
+    return (food.cal || 0) * (entry.grams / servingG);
+  }
+  // grams: food.cal per 100g
   return (food.cal || 0) * (entry.grams / 100);
 }
 
@@ -762,11 +789,15 @@ function calcEntryMacro(entry, macro) {
   if (!entry.foodId) return entry['custom' + macro.charAt(0).toUpperCase() + macro.slice(1)] || 0;
   const food = state.db.find(f => f.id === entry.foodId);
   if (!food) return 0;
-  const unit = entry.unit || 'g';
+  const unit = entry.unit || food.type || 'g';
   if (unit === 'kcal') return 0;
   if (unit === 'pcs') {
-    const perPiece = (food[macro]||0) * (food.serving / 100);
-    return perPiece * entry.grams;
+    return (food[macro] || 0) * entry.grams;
+  }
+  if (food.type === 'pcs') {
+    // Food is per-piece but entry was logged in grams → convert via serving size
+    const servingG = food.serving || 1;
+    return (food[macro] || 0) * (entry.grams / servingG);
   }
   return (food[macro] || 0) * (entry.grams / 100);
 }
@@ -879,6 +910,11 @@ function drawCalRing(eaten, goal) {
   ctx.fillText(Math.round(pct * 100) + '%', cx, cy);
 }
 
+// Round to 2 decimal places, trim trailing zeros
+function r2(v) { return parseFloat(v.toFixed(2)); }
+// Protein: always exactly 2 decimal places
+function rP(v) { return v.toFixed(2); }
+
 function renderFoodLog(log) {
   const el = document.getElementById('food-log-list');
   if (!log.length) {
@@ -891,9 +927,9 @@ function renderFoodLog(log) {
     const icon = food ? (food.icon || '🍽️') : '✏️';
     const cal = Math.round(calcEntryKcal(entry));
     const amt = entryDisplayAmount(entry);
-    const p = Math.round(calcEntryMacro(entry,'protein'));
-    const c = Math.round(calcEntryMacro(entry,'carbs'));
-    const f = Math.round(calcEntryMacro(entry,'fat'));
+    const p = rP(calcEntryMacro(entry,'protein'));
+    const c = r2(calcEntryMacro(entry,'carbs'));
+    const f = r2(calcEntryMacro(entry,'fat'));
     return `<div class="food-entry" onclick="openLogDetail(${i})">
       <div class="food-entry-icon">${icon}</div>
       <div class="food-entry-info">
@@ -999,18 +1035,18 @@ function previewNutrients() {
   const food = state.db.find(f => f.id === fid);
   if (!food) return;
 
-  // Update unit options based on food type
+  // Auto-set unit for pcs foods
   const unitSel = document.getElementById('log-food-unit');
   if (food.type === 'pcs') unitSel.value = 'pcs';
 
-  const entry = { foodId: fid, grams, unit };
+  const entry = { foodId: fid, grams, unit: food.type === 'pcs' ? 'pcs' : unit };
   const cal = Math.round(calcEntryKcal(entry));
   const chips = [
     { lbl: 'Calories', val: cal + ' kcal', color: 'var(--accent)' },
-    { lbl: 'Protein', val: Math.round(calcEntryMacro(entry,'protein')*10)/10 + 'g', color: 'var(--accent2)' },
-    { lbl: 'Carbs', val: Math.round(calcEntryMacro(entry,'carbs')*10)/10 + 'g', color: '#f0c864' },
-    { lbl: 'Fat', val: Math.round(calcEntryMacro(entry,'fat')*10)/10 + 'g', color: 'var(--accent3)' },
-    { lbl: 'Fiber', val: Math.round(calcEntryMacro(entry,'fiber')*10)/10 + 'g', color: '#80d064' },
+    { lbl: 'Protein', val: rP(calcEntryMacro(entry,'protein')) + 'g', color: 'var(--accent2)' },
+    { lbl: 'Carbs',   val: r2(calcEntryMacro(entry,'carbs'))   + 'g', color: '#f0c864' },
+    { lbl: 'Fat',     val: r2(calcEntryMacro(entry,'fat'))     + 'g', color: 'var(--accent3)' },
+    { lbl: 'Fiber',   val: r2(calcEntryMacro(entry,'fiber'))   + 'g', color: '#80d064' },
   ];
   document.getElementById('nutrient-chips').innerHTML = chips.map(c =>
     `<div class="nutrient-chip"><strong style="color:${c.color}">${c.val}</strong> ${c.lbl}</div>`
@@ -1508,7 +1544,7 @@ function openLogDetail(idx) {
   const name = food ? food.name : (entry.customName || 'Custom Entry');
   const icon = food ? (food.icon || '🍽️') : '✏️';
   const cal = Math.round(calcEntryKcal(entry));
-  const p = Math.round(calcEntryMacro(entry,'protein')*10)/10;
+  const p = calcEntryMacro(entry,'protein').toFixed(2);
   const c = Math.round(calcEntryMacro(entry,'carbs')*10)/10;
   const f = Math.round(calcEntryMacro(entry,'fat')*10)/10;
   const amt = entryDisplayAmount(entry);
@@ -1550,7 +1586,7 @@ function openPlanDetail(day, idx) {
   const name = food ? food.name : (entry.customName || 'Custom');
   const icon = food ? (food.icon || '🍽️') : '✏️';
   const cal = Math.round(calcEntryKcal(entry));
-  const p = Math.round(calcEntryMacro(entry,'protein')*10)/10;
+  const p = calcEntryMacro(entry,'protein').toFixed(2);
   const c = Math.round(calcEntryMacro(entry,'carbs')*10)/10;
   const f = Math.round(calcEntryMacro(entry,'fat')*10)/10;
   const amt = entryDisplayAmount(entry);
@@ -1633,6 +1669,7 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 
 // ═══════════════════════ INIT ═══════════════════════
 load();
+patchDB();
 buildDateStrip();
 renderToday();
 </script>
