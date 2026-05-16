@@ -686,7 +686,10 @@ let currentLogType = 'db';
 // Detail popup context
 let detailCtx = null; // { source: 'log'|'db'|'plan'|'weight', idx, date, day }
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() {
+  // Use Riyadh timezone (Asia/Riyadh = UTC+3) so the date is always correct locally
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+}
 function save() { localStorage.setItem('nutritrack_v3', JSON.stringify(state)); }
 function load() {
   const d = localStorage.getItem('nutritrack_v3');
@@ -829,11 +832,13 @@ function showScreen(name, btn) {
 function buildDateStrip() {
   const strip = document.getElementById('date-strip');
   strip.innerHTML = '';
-  const today = new Date();
+  // Use Riyadh timezone for all date arithmetic to avoid UTC-shift issues
+  const tz = 'Asia/Riyadh';
+  const todayRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
   for (let i = -6; i <= 0; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const s = d.toISOString().slice(0, 10);
+    const d = new Date(todayRiyadh);
+    d.setDate(todayRiyadh.getDate() + i);
+    const s = d.toLocaleDateString('en-CA', { timeZone: tz });
     const chip = document.createElement('div');
     chip.className = 'date-chip' + (s === selectedDate ? ' selected' : '');
     chip.innerHTML = `<span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${d.getDate()}</span>`;
