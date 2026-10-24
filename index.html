@@ -145,7 +145,8 @@ F('olives','Coopolovia Pitted Black Olives','🫒','g',100,30,115,.8,6,10.9,3.2,
 function load(){try{const d=localStorage.getItem('nutritrack_v3');if(d)Object.assign(state,JSON.parse(d))}catch(e){}
  state.goals=Object.assign({...DEF},state.goals||{});
  if(!state.db.length)seedDB();
- state.db.forEach(f=>{if(f.complete===undefined)f.complete=['protein','cheese'].includes(f.id);if(!f.m)f.m={}});
+ state.db.forEach(f=>{if(f.sv!==2){if(f.id==='protein'&&f.type==='g'&&f.serving===10)f.serving=100;f.sv=2}
+  if(f.complete===undefined)f.complete=['protein','cheese'].includes(f.id);if(!f.m)f.m={}});
  save()}
 
 // ═════ CALCULATION ═════
@@ -156,7 +157,7 @@ function nut(e,k){
  if(!e.foodId){if(e.snap)return e.snap[k]||0;return k==='cal'?+e.customCal||0:+e['custom'+k[0].toUpperCase()+k.slice(1)]||0}
  const f=fd(e.foodId);if(!f)return 0;
  if(e.unit==='kcal')return k==='cal'?e.grams:0;
- const s=f.type==='pcs'?(e.unit==='g'?e.grams/(f.serving||1):e.grams):e.grams/100;
+ const s=(f.type==='pcs'&&e.unit!=='g')?e.grams:e.grams/(f.serving||100);
  return val(f,k)*s}
 function totals(d){const t={pc:0};ALL.forEach(a=>t[a[0]]=0);
  (state.log[d]||[]).forEach(e=>{ALL.forEach(a=>t[a[0]]+=nut(e,a[0]));const f=fd(e.foodId);if(f&&f.complete)t.pc+=nut(e,'protein')});return t}
@@ -206,7 +207,7 @@ function renderToday(){
  <button class="btn w" style="margin:0 16px 12px;width:calc(100% - 32px)" onclick="tab('micros')">Micronutrients &amp; amino acids →</button>
  <div class="card"><div class="ct">Food log</div>${log.length?log.map((e,i)=>{const f=fd(e.foodId);return `<div class="ent" onclick="${f?`openAmt('${f.id}',${i})`:''}"><div class="ei">${f?f.icon||'🍽️':'✏️'}</div><div class="ef"><div class="en">${esc(f?f.name:e.customName||'Custom')}</div><div class="em">${amtLbl(e,f)} · P ${nut(e,'protein').toFixed(2)}g · C ${r1(nut(e,'carbs'))}g · F ${r1(nut(e,'fat'))}g</div></div><div class="ek">${Math.round(nut(e,'cal'))}</div><button class="x" onclick="event.stopPropagation();delEntry(${i})">✕</button></div>`}).join(''):'<div class="empty">Nothing logged yet.<br>Tap a food above.</div>'}</div>`;
  ring(t.cal/g.cal)}
-function nutF(f,k,amt){const s=f.type==='pcs'?amt:amt/100;return val(f,k)*s}
+function nutF(f,k,amt){const s=f.type==='pcs'?amt:amt/(f.serving||100);return val(f,k)*s}
 function ring(p){const c=$('ring'),d=devicePixelRatio||1,S=116,m=S/2;c.width=c.height=S*d;const x=c.getContext('2d');x.scale(d,d);
  x.lineWidth=11;x.lineCap='round';x.beginPath();x.arc(m,m,47,0,7);x.strokeStyle='rgba(255,255,255,.07)';x.stroke();
  const g=x.createLinearGradient(0,0,S,S);if(p>1){g.addColorStop(0,'#fb7185');g.addColorStop(1,'#fda4af')}else{g.addColorStop(0,'#6ee7b7');g.addColorStop(1,'#60a5fa')}
@@ -241,7 +242,7 @@ function saveCustom(){const n=$('cu_name').value.trim();if(!n)return;const snap=
 // ═════ FOODS + USDA ═════
 let lastRes=[];
 function renderFoods(){$('dbc').textContent=state.db.length+' foods';
- $('dbl').innerHTML=state.db.map(f=>`<div class="ent" onclick="editFood('${f.id}')"><div class="ei">${f.icon||'🍽️'}</div><div class="ef"><div class="en">${esc(f.name)}${f.edited?'<span class="tag">✎ edited</span>':f.fdcId?'<span class="tag">USDA</span>':f.offCode?'<span class="tag">OFF</span>':''}${f.complete?'<span class="tag">complete protein</span>':''}</div><div class="em">${f.type==='pcs'?'Per piece':'Per 100g'} · ${f.cal||0} kcal · P ${(f.protein||0).toFixed(2)}g · C ${f.carbs||0}g · F ${f.fat||0}g${Object.keys(f.m||{}).length?' · micros ✓':''}</div></div></div>`).join('')}
+ $('dbl').innerHTML=state.db.map(f=>`<div class="ent" onclick="editFood('${f.id}')"><div class="ei">${f.icon||'🍽️'}</div><div class="ef"><div class="en">${esc(f.name)}${f.edited?'<span class="tag">✎ edited</span>':f.fdcId?'<span class="tag">USDA</span>':f.offCode?'<span class="tag">OFF</span>':''}${f.complete?'<span class="tag">complete protein</span>':''}</div><div class="em">${f.type==='pcs'?'Per piece':'Per '+(f.serving||100)+'g'} · ${f.cal||0} kcal · P ${(f.protein||0).toFixed(2)}g · C ${f.carbs||0}g · F ${f.fat||0}g${Object.keys(f.m||{}).length?' · micros ✓':''}</div></div></div>`).join('')}
 
 // USDA calls: cached 30 days on-device, de-duplicated, one fetch serves any result size, 429 cooldown
 const CK='nutritrack_usda_v1',CMAX=150,TTL=30*864e5,CDK='nutritrack_usda_cool';
@@ -326,7 +327,7 @@ async function syncMicros(){const all=state.db.filter(f=>!f.noMatch&&!f.offCode&
  let ok=0,miss=[],noAm=[],err='';
  for(const f of todo){setSt(`Syncing ${f.name} (${ok+miss.length+1}/${todo.length})…`);
   try{const pr=await profileFor(f);if(!pr){miss.push(f.name);f.noMatch=true;continue}
-   const n=pr.n,s=f.type==='pcs'?(f.serving||100)/100:1;f.m=f.m||{};
+   const n=pr.n,s=(f.serving||100)/100;f.m=f.m||{};
    NM.forEach(a=>{if(f.m[a[0]]==null&&n[a[0]]!=null)f.m[a[0]]=r2(n[a[0]]*s)});if(!f.fdcId&&pr.b.fdcId)f.fdcId=pr.b.fdcId;
    if(pr.aminos<6){f.noAmino=true;noAm.push(f.name)}else if(pr.from)f.aminoFrom=pr.from;ok++}
   catch(e){err=e.message;break}
@@ -339,7 +340,7 @@ function editFood(id){const f=id?fd(id):{type:'g',serving:100,def:100,m:{}};
  const i=(k,l,v)=>`<div><label>${l}</label><input class="in" id="f_${k}" type="number" inputmode="decimal" value="${v??''}"></div>`;
  openMod(`<h2>${id?'Edit food':'New food'}</h2>
  <label>Name</label><input class="in" id="f_name" value="${esc(f.name)}">
- <div class="g2"><div><label>Emoji</label><input class="in" id="f_icon" maxlength="2" value="${f.icon||''}"></div><div><label>Type</label><select class="in" id="f_type"><option value="g"${f.type==='g'?' selected':''}>Grams (values per 100g)</option><option value="pcs"${f.type==='pcs'?' selected':''}>Pieces (values per piece)</option></select></div>
+ <div class="g2"><div><label>Emoji</label><input class="in" id="f_icon" maxlength="2" value="${f.icon||''}"></div><div><label>Type</label><select class="in" id="f_type"><option value="g"${f.type==='g'?' selected':''}>Grams (values per serving size)</option><option value="pcs"${f.type==='pcs'?' selected':''}>Pieces (values per piece)</option></select></div>
  ${i('serving','Serving size (g)',f.serving)}${i('def','Default tap amount',f.def??dflt(f))}</div>
  <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--t)"><input type="checkbox" id="f_complete" ${f.complete?'checked':''} style="width:18px;height:18px;accent-color:var(--a)"> Complete protein source</label>
  <div class="ct" style="margin-top:16px">Macros</div><div class="g2">${MAC.map(a=>i(a[0],`${a[1]} (${a[2]})`,f[a[0]])).join('')}</div>
@@ -350,7 +351,7 @@ function editFood(id){const f=id?fd(id):{type:'g',serving:100,def:100,m:{}};
  <button class="btn w" onclick="fillModal()">Fill empty micros &amp; aminos from USDA</button>
  ${id?`<button class="btn d w" onclick="delFood('${id}')">Delete food</button>`:''}<button class="btn w" onclick="closeMod()">Cancel</button>`)}
 async function fillModal(){const n=$('f_name').value.trim();if(!n)return;toast('Looking up…');
- try{const pr=await profileFor({name:n});if(!pr){toast('No USDA match');return}const p=pr.n,s=$('f_type').value==='pcs'?(parseFloat($('f_serving').value)||100)/100:1;
+ try{const pr=await profileFor({name:n});if(!pr){toast('No USDA match');return}const p=pr.n,s=(parseFloat($('f_serving').value)||100)/100;
   NM.forEach(a=>{const e=$('f_'+a[0]);if(e.value===''&&p[a[0]]!=null)e.value=r2(p[a[0]]*s)});toast('Filled from: '+pr.b.description+(pr.aminos<6?' (no amino data found)':pr.from?' + aminos from '+pr.from:''))}catch(e){toast(e.message)}}
 function saveFood(id){const name=$('f_name').value.trim();if(!name)return;const v=k=>parseFloat($('f_'+k).value);
  const o={name,icon:$('f_icon').value||'🍽️',type:$('f_type').value,serving:v('serving')||100,def:v('def')||undefined,complete:$('f_complete').checked,notes:$('f_notes').value.trim(),m:{}};
