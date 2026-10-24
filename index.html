@@ -122,7 +122,7 @@ const r1=v=>Math.round(v*10)/10, uid=()=>Date.now().toString(36)+Math.random().t
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
 const addDays=(s,n)=>{const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-let sel=today(),cur='today',tm,lp=false,showAll=false,editMode=false;
+let fq='',sel=today(),cur='today',tm,lp=false,showAll=false,editMode=false;
 let wEnd=today();
 const shiftWeek=n=>{wEnd=addDays(wEnd,n*7);if(wEnd>today())wEnd=today();sel=addDays(sel,n*7);if(sel>today())sel=today();renderToday()};
 const save=()=>{try{localStorage.setItem('nutritrack_v3',JSON.stringify(state))}catch(e){}};
@@ -188,16 +188,12 @@ function renderToday(){
  strip+=`<button class="btn sm" style="flex:none;padding:0 9px${wEnd===today()?';opacity:.3':''}" ${wEnd===today()?'disabled':''} onclick="shiftWeek(1)">›</button>`;
  const left=g.protein-t.protein,done=left<=0,pcPct=t.protein?Math.round(t.pc/t.protein*100):0;
  const hasMic=MIC.some(m=>t[m[0]]>0);
- // most-logged foods first (counts all log entries across all days)
- const use={};Object.values(state.log).forEach(a=>a.forEach(e=>{if(e.foodId)use[e.foodId]=(use[e.foodId]||0)+1}));
- const sorted=[...state.db].sort((a,b)=>(use[b.id]||0)-(use[a.id]||0));
- const list=showAll?sorted:sorted.slice(0,9);const tiles=list.map(f=>{const d=dflt(f),k=Math.round(nutF(f,'cal',d));
-  return `<div class="tile" onpointerdown="pd('${f.id}')" onpointerup="pu('${f.id}')" onpointerleave="pc()" onpointercancel="pc()" oncontextmenu="return false">${editMode?`<span class="bg" style="background:var(--a3);color:#fff" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="delFood('${f.id}')">✕</span>`:''}<span class="e">${f.icon||'🍽️'}</span><div class="n">${esc(f.name)}</div><div class="k">${d}${f.type==='pcs'?' pc':'g'}<br>${k} kcal</div></div>`}).join('');
+ const tiles=tilesHTML();
  $('s-today').innerHTML=`
  <div class="hd"><div><h1>${isT?'Today':DN[new Date(sel+'T12:00:00Z').getUTCDay()]}</h1><div class="sub">${new Date(sel+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})}</div></div></div>
  <div class="strip">${strip}</div>
  <div class="card"><div class="row between" style="margin-bottom:12px"><span class="ct" style="margin:0">What did you eat?</span><button class="btn sm" onclick="editMode=!editMode;renderToday()">${editMode?'Done':'Edit boxes'}</button></div><div class="sub" style="margin:-6px 0 10px;font-size:11px">${editMode?'Tap a box to edit it, ✕ to delete it.':'Tap to add · hold for amount'}</div>
-  <div class="tiles">${tiles}<div class="tile cu" onclick="openCustom()"><span class="e">✏️</span><div class="n">Custom entry</div></div></div>${state.db.length>9?`<button class="btn w" onclick="showAll=!showAll;renderToday()">${showAll?'Show fewer':`Show all my foods (${state.db.length})`}</button>`:''}</div>
+  <input class="in" id="fsearch" type="search" placeholder="Search foods…" value="${esc(fq)}" oninput="searchFoods(this.value)" style="margin-bottom:10px;padding:10px 14px"><div class="tiles" id="tilesbox">${tiles}</div>${state.db.length>9?`<button class="btn w" id="moreBtn" style="${fq.trim()?'display:none':''}" onclick="showAll=!showAll;renderToday()">${showAll?'Show fewer':`Show all my foods (${state.db.length})`}</button>`:''}</div>
  <div class="card hero"><div class="row" style="gap:22px"><canvas id="ring" style="width:116px;height:116px"></canvas>
   <div style="flex:1"><div style="font:700 46px/1 var(--disp);letter-spacing:-.03em">${Math.round(t.cal)}</div><div class="sub">of ${g.cal} kcal</div><div class="sub" style="color:var(--t3)">${t.cal<g.cal?Math.round(g.cal-t.cal)+' remaining':Math.round(t.cal-g.cal)+' over'}</div></div></div></div>
  <div class="card"><div class="row between" style="margin-bottom:12px"><span class="ct" style="margin:0">Macros</span><span class="pill ${done?'ok':'no'}">${done?'✓ Protein complete':r1(left)+'g protein to go'}</span></div>
@@ -207,6 +203,18 @@ function renderToday(){
  <button class="btn w" style="margin:0 16px 12px;width:calc(100% - 32px)" onclick="tab('micros')">Micronutrients &amp; amino acids →</button>
  <div class="card"><div class="ct">Food log</div>${log.length?log.map((e,i)=>{const f=fd(e.foodId);return `<div class="ent" onclick="${f?`openAmt('${f.id}',${i})`:''}"><div class="ei">${f?f.icon||'🍽️':'✏️'}</div><div class="ef"><div class="en">${esc(f?f.name:e.customName||'Custom')}</div><div class="em">${amtLbl(e,f)} · P ${nut(e,'protein').toFixed(2)}g · C ${r1(nut(e,'carbs'))}g · F ${r1(nut(e,'fat'))}g</div></div><div class="ek">${Math.round(nut(e,'cal'))}</div><button class="x" onclick="event.stopPropagation();delEntry(${i})">✕</button></div>`}).join(''):'<div class="empty">Nothing logged yet.<br>Tap a food above.</div>'}</div>`;
  ring(t.cal/g.cal)}
+// food boxes: most-logged first; search filters across ALL foods
+function tilesHTML(){
+ const use={};Object.values(state.log).forEach(a=>a.forEach(e=>{if(e.foodId)use[e.foodId]=(use[e.foodId]||0)+1}));
+ const q=fq.trim().toLowerCase();
+ let sorted=[...state.db].sort((a,b)=>(use[b.id]||0)-(use[a.id]||0));
+ if(q)sorted=sorted.filter(f=>(f.name||'').toLowerCase().includes(q));
+ const list=(showAll||q)?sorted:sorted.slice(0,9);
+ const t=list.map(f=>{const d=dflt(f),k=Math.round(nutF(f,'cal',d));
+  return `<div class="tile" onpointerdown="pd('${f.id}')" onpointerup="pu('${f.id}')" onpointerleave="pc()" onpointercancel="pc()" oncontextmenu="return false">${editMode?`<span class="bg" style="background:var(--a3);color:#fff" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="delFood('${f.id}')">✕</span>`:''}<span class="e">${f.icon||'🍽️'}</span><div class="n">${esc(f.name)}</div><div class="k">${d}${f.type==='pcs'?' pc':'g'}<br>${k} kcal</div></div>`}).join('');
+ const none=q&&!list.length?`<div class="sub" style="grid-column:1/-1;text-align:center;padding:10px 0">No foods match "${esc(fq.trim())}"</div>`:'';
+ return t+none+`<div class="tile cu" onclick="openCustom()"><span class="e">✏️</span><div class="n">Custom entry</div></div>`}
+function searchFoods(v){fq=v;const b=$('tilesbox');if(b)b.innerHTML=tilesHTML();const m=$('moreBtn');if(m)m.style.display=fq.trim()?'none':''}
 function nutF(f,k,amt){const s=f.type==='pcs'?amt:amt/(f.serving||100);return val(f,k)*s}
 function ring(p){const c=$('ring'),d=devicePixelRatio||1,S=116,m=S/2;c.width=c.height=S*d;const x=c.getContext('2d');x.scale(d,d);
  x.lineWidth=11;x.lineCap='round';x.beginPath();x.arc(m,m,47,0,7);x.strokeStyle='rgba(255,255,255,.07)';x.stroke();
