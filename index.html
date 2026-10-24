@@ -45,7 +45,7 @@ nav{position:fixed;bottom:calc(10px + var(--sb));left:50%;transform:translateX(-
 nav button{flex:1;border:none;background:none;color:var(--t3);font:600 10.5px 'Manrope',sans-serif;padding:9px 0 7px;border-radius:20px;display:flex;flex-direction:column;align-items:center;gap:4px;transition:background .2s,color .2s}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--a);background:rgba(110,231,183,.12)}
-.strip{display:flex;gap:7px;padding:0 16px 16px}
+.strip{display:flex;gap:7px;padding:0 16px 16px;align-items:stretch}
 .chip{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 2px;border-radius:16px;border:1px solid var(--bd);background:var(--s);cursor:pointer;transition:background .15s}
 .chip.sel{background:var(--a);border-color:var(--a);color:#06241a;box-shadow:0 8px 20px -8px rgba(110,231,183,.7)}
 .chip b{font:700 17px var(--disp)}.chip i{font-style:normal;font-size:10.5px;font-weight:600;opacity:.7}
@@ -87,7 +87,7 @@ canvas{display:block}
  </div>
  <div class="screen" id="s-foods">
   <div class="hd"><div><h1>Foods</h1><div class="sub" id="dbc"></div></div><button class="btn a2" onclick="editFood()">+ New</button></div>
-  <div class="card"><div class="ct">Search USDA FoodData Central</div>
+  <div class="card"><div class="ct">Search food databases</div><select class="in" id="src" style="margin-bottom:10px"><option value="usda">USDA FoodData Central (raw &amp; generic foods)</option><option value="off-sa">Open Food Facts · Saudi products</option><option value="off">Open Food Facts · worldwide</option></select><div class="sub" style="font-size:11px;margin:-2px 0 10px">Tip: type or paste a barcode to look up a packaged product.</div>
    <div class="row"><input class="in" id="q" placeholder="e.g. spinach, raw" onkeydown="if(event.key==='Enter')usdaSearch()"><button class="btn sm" onclick="usdaSearch()">Search</button></div><div id="qr"></div></div>
   <div class="card"><div class="row between" style="margin-bottom:6px"><span class="ct" style="margin:0">Library</span><button class="btn sm" onclick="syncMicros()">Sync micros</button></div><div class="sub syncst" style="font-size:11px;margin-bottom:6px"></div><div id="dbl"></div></div>
  </div>
@@ -113,7 +113,9 @@ const FDC={cal:1008,protein:1003,fat:1004,carbs:1005,fiber:1079,sugar:2000,sodiu
 const INV={};Object.keys(FDC).forEach(k=>INV[FDC[k]]=k);
 
 // ═════ STATE ═════
-const state={db:[],log:{},weights:[],plan:{},goals:{cal:2000,protein:150,carbs:250,fat:65,sugar:50,fiber:30,sodium:2300},apiKey:'DEMO_KEY'};
+// Default goals: 55 kg adult female, moderately active
+const DEF={cal:1800,protein:90,carbs:225,fat:60,sugar:25,fiber:25,sodium:2300};
+const state={db:[],log:{},weights:[],plan:{},goals:{...DEF},apiKey:'DEMO_KEY'};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const r1=v=>Math.round(v*10)/10, uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -121,6 +123,8 @@ const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
 const addDays=(s,n)=>{const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
 const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let sel=today(),cur='today',tm,lp=false,showAll=false,editMode=false;
+let wEnd=today();
+const shiftWeek=n=>{wEnd=addDays(wEnd,n*7);if(wEnd>today())wEnd=today();sel=addDays(sel,n*7);if(sel>today())sel=today();renderToday()};
 const save=()=>{try{localStorage.setItem('nutritrack_v3',JSON.stringify(state))}catch(e){}};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1800)}
 
@@ -139,7 +143,7 @@ F('strawberry','Strawberry','🍓','g',100,100,32,.7,7.7,.3,2,4.9,1,0,false,''),
 F('olives','Coopolovia Pitted Black Olives','🫒','g',100,30,115,.8,6,10.9,3.2,0,735,0,false,'')]}
 
 function load(){try{const d=localStorage.getItem('nutritrack_v3');if(d)Object.assign(state,JSON.parse(d))}catch(e){}
- state.goals=Object.assign({cal:2000,protein:150,carbs:250,fat:65,sugar:50,fiber:30,sodium:2300},state.goals||{});
+ state.goals=Object.assign({...DEF},state.goals||{});
  if(!state.db.length)seedDB();
  state.db.forEach(f=>{if(f.complete===undefined)f.complete=['protein','cheese'].includes(f.id);if(!f.m)f.m={}});
  save()}
@@ -156,7 +160,7 @@ function nut(e,k){
  return val(f,k)*s}
 function totals(d){const t={pc:0};ALL.forEach(a=>t[a[0]]=0);
  (state.log[d]||[]).forEach(e=>{ALL.forEach(a=>t[a[0]]+=nut(e,a[0]));const f=fd(e.foodId);if(f&&f.complete)t.pc+=nut(e,'protein')});return t}
-const amtLbl=(e,f)=>e.unit==='kcal'&&!f&&!e.snap?'custom':f&&f.type==='pcs'?`${e.grams} pc${e.grams==1?'':'s'}`:`${e.grams}g`;
+const amtLbl=(e,f)=>(e.custom||(e.unit==='kcal'&&!f&&!e.snap))?'custom':f&&f.type==='pcs'?`${e.grams} pc${e.grams==1?'':'s'}`:`${e.grams}g`;
 
 // ═════ NAV ═════
 function tab(n){cur=n;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$('s-'+n).classList.add('on');
@@ -176,12 +180,18 @@ const mbar=(l,v,g,u)=>{const p=v/g*100;return `<div class="pb"><div class="pl"><
 
 function renderToday(){
  const t=totals(sel),g=state.goals,log=state.log[sel]||[],isT=sel===today();
- const cnt={};log.forEach(e=>{if(e.foodId)cnt[e.foodId]=(cnt[e.foodId]||0)+1});
- let strip='';for(let i=-6;i<=0;i++){const s=addDays(today(),i),d=new Date(s+'T12:00:00Z');strip+=`<div class="chip${s===sel?' sel':''}" onclick="sel='${s}';renderToday()"><i>${DN[d.getUTCDay()]}</i><b>${d.getUTCDate()}</b></div>`}
+ // keep the week strip in sync with the selected day
+ if(sel>wEnd||sel<addDays(wEnd,-6)){wEnd=sel>wEnd?sel:addDays(sel,6);if(wEnd>today())wEnd=today()}
+ let strip=`<button class="btn sm" style="flex:none;padding:0 9px" onclick="shiftWeek(-1)">‹</button>`;
+ for(let i=-6;i<=0;i++){const s=addDays(wEnd,i),d=new Date(s+'T12:00:00Z');strip+=`<div class="chip${s===sel?' sel':''}" onclick="sel='${s}';renderToday()"><i>${DN[d.getUTCDay()]}</i><b>${d.getUTCDate()}</b></div>`}
+ strip+=`<button class="btn sm" style="flex:none;padding:0 9px${wEnd===today()?';opacity:.3':''}" ${wEnd===today()?'disabled':''} onclick="shiftWeek(1)">›</button>`;
  const left=g.protein-t.protein,done=left<=0,pcPct=t.protein?Math.round(t.pc/t.protein*100):0;
  const hasMic=MIC.some(m=>t[m[0]]>0);
- const list=showAll?state.db:state.db.slice(0,9);const tiles=list.map(f=>{const d=dflt(f),k=Math.round(nutF(f,'cal',d));
-  return `<div class="tile" onpointerdown="pd('${f.id}')" onpointerup="pu('${f.id}')" onpointerleave="pc()" onpointercancel="pc()" oncontextmenu="return false">${editMode?`<span class="bg" style="background:var(--a3);color:#fff" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="delFood('${f.id}')">✕</span>`:cnt[f.id]?`<span class="bg">${cnt[f.id]}</span>`:''}<span class="e">${f.icon||'🍽️'}</span><div class="n">${esc(f.name)}</div><div class="k">${d}${f.type==='pcs'?' pc':'g'}<br>${k} kcal</div></div>`}).join('');
+ // most-logged foods first (counts all log entries across all days)
+ const use={};Object.values(state.log).forEach(a=>a.forEach(e=>{if(e.foodId)use[e.foodId]=(use[e.foodId]||0)+1}));
+ const sorted=[...state.db].sort((a,b)=>(use[b.id]||0)-(use[a.id]||0));
+ const list=showAll?sorted:sorted.slice(0,9);const tiles=list.map(f=>{const d=dflt(f),k=Math.round(nutF(f,'cal',d));
+  return `<div class="tile" onpointerdown="pd('${f.id}')" onpointerup="pu('${f.id}')" onpointerleave="pc()" onpointercancel="pc()" oncontextmenu="return false">${editMode?`<span class="bg" style="background:var(--a3);color:#fff" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="delFood('${f.id}')">✕</span>`:''}<span class="e">${f.icon||'🍽️'}</span><div class="n">${esc(f.name)}</div><div class="k">${d}${f.type==='pcs'?' pc':'g'}<br>${k} kcal</div></div>`}).join('');
  $('s-today').innerHTML=`
  <div class="hd"><div><h1>${isT?'Today':DN[new Date(sel+'T12:00:00Z').getUTCDay()]}</h1><div class="sub">${new Date(sel+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})}</div></div></div>
  <div class="strip">${strip}</div>
@@ -216,16 +226,22 @@ function amtPre(id){const f=fd(id),a=parseFloat($('amt').value)||0;$('apre').tex
 function saveAmt(id,idx){const a=parseFloat($('amt').value);if(!a)return;(state.log[sel]=state.log[sel]||[]);
  if(idx>=0)state.log[sel][idx].grams=a;else state.log[sel].push({foodId:id,grams:a,ts:Date.now()});save();closeMod();renderToday()}
 
-function openCustom(){const i=(k,l)=>`<div><label>${l}</label><input class="in" id="cu_${k}" type="number" inputmode="decimal"></div>`;
- openMod(`<h2>Custom entry</h2><label>Name</label><input class="in" id="cu_name" placeholder="e.g. Restaurant meal"><div class="g2">${i('cal','Calories')}${i('protein','Protein (g)')}${i('carbs','Carbs (g)')}${i('fat','Fat (g)')}${i('sugar','Sugar (g)')}</div>
+// Custom entry: macros + vitamins/minerals + amino acids (all optional)
+function openCustom(){const i=(a,u)=>`<div><label>${a[1]} (${u||a[2]})</label><input class="in" id="cu_${a[0]}" type="number" inputmode="decimal"></div>`;
+ openMod(`<h2>Custom entry</h2><label>Name</label><input class="in" id="cu_name" placeholder="e.g. Restaurant meal">
+ <div class="ct" style="margin-top:16px">Macros</div><div class="g2">${MAC.map(a=>i(a)).join('')}</div>
+ <div class="ct" style="margin-top:16px">Micronutrients</div><div class="g2">${MIC.map(a=>i(a)).join('')}</div>
+ <div class="ct" style="margin-top:16px">Amino acids</div><div class="g2">${AMI.map(a=>i(a)).join('')}</div>
+ <div class="sub" style="font-size:11px;margin-top:10px">All values are for the whole entry. Leave blank for 0.</div>
  <button class="btn p" onclick="saveCustom()">Add to log</button><button class="btn w" onclick="closeMod()">Cancel</button>`)}
-function saveCustom(){const n=$('cu_name').value.trim();if(!n)return;const v=k=>parseFloat($('cu_'+k).value)||0;
- (state.log[sel]=state.log[sel]||[]).push({foodId:null,customName:n,customCal:v('cal'),customProtein:v('protein'),customCarbs:v('carbs'),customFat:v('fat'),customSugar:v('sugar'),grams:1,unit:'kcal',ts:Date.now()});save();closeMod();renderToday()}
+function saveCustom(){const n=$('cu_name').value.trim();if(!n)return;const snap={};
+ ALL.forEach(a=>snap[a[0]]=parseFloat($('cu_'+a[0]).value)||0);
+ (state.log[sel]=state.log[sel]||[]).push({foodId:null,customName:n,custom:true,snap,grams:1,unit:'kcal',ts:Date.now()});save();closeMod();renderToday()}
 
 // ═════ FOODS + USDA ═════
 let lastRes=[];
 function renderFoods(){$('dbc').textContent=state.db.length+' foods';
- $('dbl').innerHTML=state.db.map(f=>`<div class="ent" onclick="editFood('${f.id}')"><div class="ei">${f.icon||'🍽️'}</div><div class="ef"><div class="en">${esc(f.name)}${f.edited?'<span class="tag">✎ edited</span>':f.fdcId?'<span class="tag">USDA</span>':''}${f.complete?'<span class="tag">complete protein</span>':''}</div><div class="em">${f.type==='pcs'?'Per piece':'Per 100g'} · ${f.cal||0} kcal · P ${(f.protein||0).toFixed(2)}g · C ${f.carbs||0}g · F ${f.fat||0}g${Object.keys(f.m||{}).length?' · micros ✓':''}</div></div></div>`).join('')}
+ $('dbl').innerHTML=state.db.map(f=>`<div class="ent" onclick="editFood('${f.id}')"><div class="ei">${f.icon||'🍽️'}</div><div class="ef"><div class="en">${esc(f.name)}${f.edited?'<span class="tag">✎ edited</span>':f.fdcId?'<span class="tag">USDA</span>':f.offCode?'<span class="tag">OFF</span>':''}${f.complete?'<span class="tag">complete protein</span>':''}</div><div class="em">${f.type==='pcs'?'Per piece':'Per 100g'} · ${f.cal||0} kcal · P ${(f.protein||0).toFixed(2)}g · C ${f.carbs||0}g · F ${f.fat||0}g${Object.keys(f.m||{}).length?' · micros ✓':''}</div></div></div>`).join('')}
 
 // USDA calls: cached 30 days on-device, de-duplicated, one fetch serves any result size, 429 cooldown
 const CK='nutritrack_usda_v1',CMAX=150,TTL=30*864e5,CDK='nutritrack_usda_cool';
@@ -246,19 +262,37 @@ async function usda(q,n){const key=q.toLowerCase().replace(/\s+/g,' ').trim(),no
   const ks=Object.keys(ucache);if(ks.length>CMAX){ks.sort((a,b)=>ucache[a].u-ucache[b].u).slice(0,ks.length-CMAX).forEach(x=>delete ucache[x])}
   ucSave();return f})();
  try{return (await inflight[key]).slice(0,n)}finally{delete inflight[key]}}
-function parseN(food){const n={};(food.foodNutrients||[]).forEach(x=>{const k=INV[x.nutrientId];if(k&&x.value!=null)n[k]=x.value;if(n.cal==null&&(x.nutrientId===2047||x.nutrientId===2048))n._e=x.value});if(n.cal==null&&n._e!=null)n.cal=n._e;delete n._e;return n}
+function parseN(food){if(food.n)return{...food.n};const n={};(food.foodNutrients||[]).forEach(x=>{const k=INV[x.nutrientId];if(k&&x.value!=null)n[k]=x.value;if(n.cal==null&&(x.nutrientId===2047||x.nutrientId===2048))n._e=x.value});if(n.cal==null&&n._e!=null)n.cal=n._e;delete n._e;return n}
+// Open Food Facts (packaged products, barcodes, Saudi market). Free, no key. Converted to our units, per 100g.
+const OFFM={cal:['energy-kcal',1],protein:['proteins',1],carbs:['carbohydrates',1],fat:['fat',1],sugar:['sugars',1],fiber:['fiber',1],sodium:['sodium',1e3],cholesterol:['cholesterol',1e3],vitA:['vitamin-a',1e6],vitC:['vitamin-c',1e3],vitD:['vitamin-d',1e6],vitE:['vitamin-e',1e3],vitK:['vitamin-k',1e6],b12:['vitamin-b12',1e6],folate:['vitamin-b9',1e6],calcium:['calcium',1e3],iron:['iron',1e3],magnesium:['magnesium',1e3],potassium:['potassium',1e3],zinc:['zinc',1e3]};
+function offNorm(p){const nu=p.nutriments||{},n={};
+ Object.keys(OFFM).forEach(k=>{const v=nu[OFFM[k][0]+'_100g'];if(typeof v==='number'&&isFinite(v))n[k]=r2(v*OFFM[k][1])});
+ if(n.cal==null&&typeof nu.energy_100g==='number')n.cal=r2(nu.energy_100g/4.184);
+ if(n.sodium==null&&typeof nu.salt_100g==='number')n.sodium=r2(nu.salt_100g/2.5*1e3);
+ const nm=p.product_name_en||p.product_name||'';if(!nm||n.cal==null)return null;
+ return{off:String(p.code||''),description:p.brands?nm+' · '+p.brands.split(',')[0].trim():nm,n}}
+async function offGet(q,saudi){const key='off:'+(saudi?'sa:':'w:')+q.toLowerCase().replace(/\s+/g,' ').trim(),now=Date.now(),c=ucache[key];
+ if(c&&now-c.t<TTL){c.u=now;return c.f}
+ const fl='code,product_name,product_name_en,brands,nutriments',isCode=/^\d{8,14}$/.test(q);
+ const u=isCode?`https://world.openfoodfacts.org/api/v2/product/${q}.json?fields=${fl}`:`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=20&fields=${fl}${saudi?'&tagtype_0=countries&tag_contains_0=contains&tag_0=saudi-arabia':''}`;
+ let r;try{r=await fetch(u)}catch(e){throw new Error('Could not reach Open Food Facts (offline or blocked)')}
+ if(r.status===429)throw new Error('Open Food Facts rate limit. Wait a minute and retry.');
+ if(r.status===404&&isCode)return [];
+ if(!r.ok)throw new Error('Open Food Facts error '+r.status);
+ const j=await r.json(),f=(isCode?(j.product?[j.product]:[]):(j.products||[])).map(offNorm).filter(Boolean).slice(0,10);
+ if(f.length){ucache[key]={t:now,u:now,f};ucSave()}return f}
 let searching=false;
 async function usdaSearch(){const q=$('q').value.trim();if(q.length<2||searching)return;searching=true;$('qr').innerHTML='<div class="empty">Searching…</div>';
- try{lastRes=await usda(q,8);$('qr').innerHTML=lastRes.length?lastRes.map((f,i)=>{const n=parseN(f);return `<div class="ent" style="cursor:default"><div class="ef"><div class="en">${esc(f.description)}</div><div class="em">per 100g · ${Math.round(n.cal||0)} kcal · P ${r1(n.protein||0)}g · C ${r1(n.carbs||0)}g · F ${r1(n.fat||0)}g · ${aCount(n)>=6?'aminos ✓':'no aminos'}</div></div><button class="btn sm" onclick="addUsda(${i})">Add</button></div>`}).join(''):'<div class="empty">No results.</div>'}
+ try{const src=$('src').value,isCode=/^\d{8,14}$/.test(q);lastRes=(src==='usda'&&!isCode)?await usda(q,8):await offGet(q,src==='off-sa'&&!isCode);$('qr').innerHTML=lastRes.length?lastRes.map((f,i)=>{const n=parseN(f);return `<div class="ent" style="cursor:default"><div class="ef"><div class="en">${esc(f.description)}</div><div class="em">per 100g · ${Math.round(n.cal||0)} kcal · P ${r1(n.protein||0)}g · C ${r1(n.carbs||0)}g · F ${r1(n.fat||0)}g · ${aCount(n)>=6?'aminos ✓':'no aminos'}</div></div><button class="btn sm" onclick="addUsda(${i})">Add</button></div>`}).join(''):'<div class="empty">No results.'+($('src').value==='off-sa'?'<br>Try the worldwide option.':'')+'</div>'}
  catch(e){$('qr').innerHTML=`<div class="empty">${esc(e.message)}<br>Check your connection or API key.</div>`}finally{searching=false}}
 function addUsda(i){const f=lastRes[i];
- if(state.db.some(x=>x.fdcId===f.fdcId)){toast('Already in your foods (your version kept)');return}
+ if(state.db.some(x=>f.off?x.offCode===f.off:x.fdcId===f.fdcId)){toast('Already in your foods (your version kept)');return}
  openMod(`<h2>Add food</h2><label>Name</label><input class="in" id="u_name" value="${esc(f.description)}"><div class="g2"><div><label>Emoji</label><input class="in" id="u_icon" maxlength="2" placeholder="🍽️"></div><div><label>Amount (g)</label><input class="in" id="u_amt" type="number" inputmode="decimal" value="100"></div></div>
  <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--t);margin-top:14px"><input type="checkbox" id="u_save" checked style="width:18px;height:18px;accent-color:var(--a)"> Save to my foods (adds a box on Today)</label>
  <div class="sub" style="font-size:11px;margin-top:6px">Saved: the amount becomes the box tap amount. Unchecked: logged once for the day you are viewing, nothing saved.</div>
  <button class="btn p" onclick="confirmUsda(${i})">Add</button><button class="btn w" onclick="closeMod()">Cancel</button>`)}
 function confirmUsda(i){const f=lastRes[i],n=parseN(f),amt=parseFloat($('u_amt').value)||100,name=$('u_name').value.trim()||f.description,icon=$('u_icon').value||'🍽️';
- if($('u_save').checked){const o={id:uid(),name,icon,type:'g',serving:100,def:amt,fdcId:f.fdcId,edited:false,complete:false,notes:'',m:{}};
+ if($('u_save').checked){const o={id:uid(),name,icon,type:'g',serving:100,def:amt,fdcId:f.fdcId,offCode:f.off,edited:false,complete:false,notes:'',m:{}};
   MAC.forEach(a=>o[a[0]]=n[a[0]]||0);NM.forEach(a=>{if(n[a[0]]!=null)o.m[a[0]]=n[a[0]]});state.db.push(o);toast('Saved '+name)}
  else{const snap={};ALL.forEach(a=>snap[a[0]]=(n[a[0]]||0)*amt/100);(state.log[sel]=state.log[sel]||[]).push({foodId:null,customName:name,snap,grams:amt,unit:'kcal',ts:Date.now()});toast('Logged '+name)}
  save();closeMod();renderFoods()}
@@ -287,7 +321,7 @@ async function profileFor(f){let b=null,n,from=null;
  if(aCount(n)<6){const r=await usda(cleanName(f.name),8),alt=r.slice(0,5).find(x=>aCount(parseN(x))>=6);
   if(alt){const a=parseN(alt);AMK.forEach(k=>{if(n[k]==null&&a[k]!=null)n[k]=a[k]});from=alt.description}}
  return{b,n,from,aminos:aCount(n)}}
-async function syncMicros(){const all=state.db.filter(f=>!f.noMatch&&NM.some(a=>(!f.m||f.m[a[0]]==null)&&!(f.noAmino&&AMK.includes(a[0])))),todo=all.slice(0,10);
+async function syncMicros(){const all=state.db.filter(f=>!f.noMatch&&!f.offCode&&NM.some(a=>(!f.m||f.m[a[0]]==null)&&!(f.noAmino&&AMK.includes(a[0])))),todo=all.slice(0,10);
  if(!todo.length){setSt('All foods already have micro data.');return}
  let ok=0,miss=[],noAm=[],err='';
  for(const f of todo){setSt(`Syncing ${f.name} (${ok+miss.length+1}/${todo.length})…`);
@@ -362,10 +396,12 @@ function delWeight(d){state.weights=state.weights.filter(w=>w.date!==d);save();r
 function renderGoals(){const g=state.goals,L=[['cal','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbs (g)'],['fat','Fat (g)'],['sugar','Sugar limit (g)'],['fiber','Fiber (g)']];
  $('s-goals').innerHTML=`<div class="hd"><div><h1>Goals</h1><div class="sub">Daily targets and backend</div></div></div>
  <div class="card"><div class="ct">Daily targets</div><div class="g2">${L.map(a=>`<div><label>${a[1]}</label><input class="in" id="g_${a[0]}" oninput="saveGoals(true)" type="number" inputmode="decimal" value="${g[a[0]]}"></div>`).join('')}</div>
- <div class="sub" style="margin-top:12px;font-size:11px">Micronutrient bars use adult female daily values (Vit C 75mg, K 90µg, iron 18mg, etc). Amino acid targets are for 55kg.</div></div>
+ <div class="sub" style="margin-top:12px;font-size:11px">Micronutrient bars use adult female daily values (Vit C 75mg, K 90µg, iron 18mg, etc). Amino acid targets are for 55kg.</div>
+ <button class="btn w" onclick="resetGoals()">Reset to 55 kg female defaults</button></div>
  <div class="card"><div class="ct">USDA FoodData Central</div><label>API key</label><input class="in" id="g_key" value="${esc(state.apiKey)}"><div class="sub" style="margin-top:8px;font-size:11px">DEMO_KEY is heavily rate limited. Get a free key at fdc.nal.usda.gov/api-key-signup and paste it here.</div>
  <button class="btn p" onclick="saveGoals()">Save &amp; go to Today</button></div>`}
 function saveGoals(q){['cal','protein','carbs','fat','sugar','fiber'].forEach(k=>{const v=parseFloat($('g_'+k).value);if(v>0)state.goals[k]=v});state.apiKey=$('g_key').value.trim()||'DEMO_KEY';save();if(!q){toast('Goals saved');tab('today')}}
+function resetGoals(){state.goals={...DEF};save();renderGoals();toast('Goals reset')}
 
 load();renderToday();
 </script>
