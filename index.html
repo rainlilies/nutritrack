@@ -29,6 +29,9 @@ h1,h2{font-family:var(--disp);font-weight:700;letter-spacing:-.025em}h1{font-siz
 .btn.a2{background:rgba(96,165,250,.14);border:1px solid rgba(96,165,250,.3);color:#9cc7ff;padding:10px 14px;font-size:13px}
 .btn.a2:hover{background:rgba(96,165,250,.22)}.btn.sm{padding:8px 13px;font-size:13px;border-radius:12px}
 .btn.d{background:rgba(251,113,133,.12);color:var(--a3);border:1px solid rgba(251,113,133,.3)}.btn.w{width:100%;margin-top:8px}
+.seg{display:flex;gap:6px;margin:0 16px 12px;background:var(--s);border:1px solid var(--bd);border-radius:16px;padding:5px}
+.seg .btn{flex:1;padding:10px 4px;font-size:13px;border:none;background:none;border-radius:12px;color:var(--t2)}
+.seg .btn.on{background:var(--a);color:#06241a;font-weight:700;box-shadow:0 6px 16px -8px rgba(110,231,183,.7)}
 .in{width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;color:var(--t);font:500 16px 'Manrope',sans-serif;outline:none;transition:border-color .15s,box-shadow .15s}
 .in{min-width:0;max-width:100%;-webkit-appearance:none;appearance:none}
 .row .in{flex:1;width:auto}
@@ -124,6 +127,7 @@ const addDays=(s,n)=>{const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate
 const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let fq='',sel=today(),cur='today',tm,lp=false,showAll=false,editMode=false;
 let wEnd=today();
+let mAvg='day'; // Micros page view: 'day' | 'week' | 'month'
 const shiftWeek=n=>{wEnd=addDays(wEnd,n*7);if(wEnd>today())wEnd=today();sel=addDays(sel,n*7);if(sel>today())sel=today();renderToday()};
 const save=()=>{try{localStorage.setItem('nutritrack_v3',JSON.stringify(state))}catch(e){}};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1800)}
@@ -162,6 +166,17 @@ function nut(e,k){
 function totals(d){const t={pc:0};ALL.forEach(a=>t[a[0]]=0);
  (state.log[d]||[]).forEach(e=>{ALL.forEach(a=>t[a[0]]+=nut(e,a[0]));const f=fd(e.foodId);if(f&&f.complete)t.pc+=nut(e,'protein')});return t}
 const amtLbl=(e,f)=>(e.custom||(e.unit==='kcal'&&!f&&!e.snap))?'custom':f&&f.type==='pcs'?`${e.grams} pc${e.grams==1?'':'s'}`:`${e.grams}g`;
+
+// Average over a range ending at the selected day. Days with nothing logged are skipped (not counted as 0).
+function periodRange(m){
+ if(m==='week'){const s=addDays(sel,-new Date(sel+'T12:00:00Z').getUTCDay());return[s,addDays(s,6)]} // Sunday to Saturday
+ if(m==='month'){const y=+sel.slice(0,4),mo=+sel.slice(5,7),last=new Date(Date.UTC(y,mo,0)).getUTCDate();return[sel.slice(0,8)+'01',sel.slice(0,8)+String(last).padStart(2,'0')]} // 1st to last day
+ return[sel,sel]}
+const rangeDates=m=>{const[s,e]=periodRange(m),a=[];for(let d=s;d<=e;d=addDays(d,1))a.push(d);return a};
+function rangeTotals(m){const t={pc:0};ALL.forEach(a=>t[a[0]]=0);let days=0;
+ rangeDates(m).forEach(d=>{if(!(state.log[d]||[]).length)return;days++;const x=totals(d);Object.keys(t).forEach(k=>t[k]+=x[k])});
+ if(days)Object.keys(t).forEach(k=>t[k]/=days);
+ t.days=days;return t}
 
 // ═════ NAV ═════
 function tab(n){cur=n;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$('s-'+n).classList.add('on');
@@ -369,16 +384,32 @@ function saveFood(id){const name=$('f_name').value.trim();if(!name)return;const 
 function delFood(id){if(!confirm('Delete this food? Past log entries that use it will show as empty.'))return;state.db=state.db.filter(f=>f.id!==id);save();closeMod();cur==='today'?renderToday():renderFoods()}
 
 // ═════ MICROS TAB ═════
-function renderMicros(){const t=totals(sel),g=state.goals,isT=sel===today();
- const box=(l,v,u,gl)=>`<div style="background:var(--s2);border-radius:12px;padding:10px 4px;text-align:center"><div style="font-weight:600;font-size:16px">${v}<span style="font-size:10px;color:var(--t2)"> ${u}</span></div><div style="font-size:10px;color:var(--t2);margin-top:2px">${l}</div><div style="font-size:10px;color:var(--t3)">goal ${gl}</div></div>`;
+function setAvg(m){mAvg=m;renderMicros()}
+// ‹ › step by the length of the selected period: 1 day, 7 days (week) or 30 days (month); never past today
+function navMicros(dir){
+ if(mAvg==='month'){const y=+sel.slice(0,4),mo=+sel.slice(5,7)-1+dir;sel=new Date(Date.UTC(y,mo,1,12)).toISOString().slice(0,10)}
+ else sel=addDays(sel,dir*(mAvg==='week'?7:1));
+ if(sel>today())sel=today();renderMicros()}
+function renderMicros(){const t=rangeTotals(mAvg),g=state.goals,isT=sel===today(),isAvg=mAvg!=='day',pr=periodRange(mAvg),atEnd=pr[1]>=today();
+ const box=(l,v,u,gl,x='')=>`<div style="background:var(--s2);border-radius:12px;padding:10px 4px;text-align:center;${x}"><div style="font-weight:600;font-size:16px">${v}<span style="font-size:10px;color:var(--t2)"> ${u}</span></div><div style="font-size:10px;color:var(--t2);margin-top:2px">${l}</div><div style="font-size:10px;color:var(--t3)">goal ${gl}</div></div>`;
  const nb=(l,v,gl,u)=>{const p=v/gl*100;return `<div class="pb"><div class="pl"><span>${l}</span><span>${r2(v)}${u} · ${Math.round(p)}%</span></div><div class="pt"><div class="pf" style="width:${Math.min(100,p)}%;background:${p>=100?'var(--a)':'var(--a2)'}"></div></div></div>`};
- const miss=[...new Set((state.log[sel]||[]).map(e=>fd(e.foodId)).filter(f=>f&&!Object.keys(f.m||{}).length).map(f=>f.name))];
- $('s-micros').innerHTML=`<div class="hd"><div><h1>Micros</h1><div class="sub">${isT?'Today':sel} · what you ate</div></div><div class="row"><button class="btn sm" onclick="sel=addDays(sel,-1);renderMicros()">‹</button><button class="btn sm" ${isT?'disabled style="opacity:.3"':''} onclick="sel=addDays(sel,1);renderMicros()">›</button></div></div>
- <div class="card"><div class="ct">Main macros</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">${box('Calories',t.cal.toFixed(1),'kcal',g.cal)}${box('Protein',t.protein.toFixed(1),'g',g.protein)}${box('Carbs',t.carbs.toFixed(1),'g',g.carbs)}${box('Fat',t.fat.toFixed(1),'g',g.fat)}${box('Sugar',t.sugar.toFixed(1),'g','&lt;'+g.sugar)}${box('Fiber',t.fiber.toFixed(1),'g',g.fiber)}</div></div>
+ // foods in range that have no micro data (so you know why a bar may be low)
+ const miss=[...new Set(rangeDates(mAvg).flatMap(d=>state.log[d]||[]).map(e=>fd(e.foodId)).filter(f=>f&&!Object.keys(f.m||{}).length).map(f=>f.name))];
+ const fmt=(s,o)=>new Date(s+'T12:00:00Z').toLocaleDateString('en-US',{...o,timeZone:'UTC'});
+ const lbl=mAvg==='week'?'Weekly Average':'Monthly Average',rng=mAvg==='week'?fmt(pr[0],{month:'short',day:'numeric'})+' – '+fmt(pr[1],{month:'short',day:'numeric'}):fmt(pr[0],{month:'long',year:'numeric'});
+ const subtitle=isAvg?`${lbl} · ${rng} · ${t.days} day${t.days==1?'':'s'} logged`:`${isT?'Today':sel} · what you ate`;
+ const sodP=g.sodium?t.sodium/g.sodium*100:0;
+ const empty=isAvg&&!t.days;
+ $('s-micros').innerHTML=`<div class="hd"><div><h1>Micros</h1><div class="sub">${subtitle}</div></div><div class="row"><button class="btn sm" onclick="navMicros(-1)">‹</button><button class="btn sm" ${atEnd?'disabled style="opacity:.3"':''} onclick="navMicros(1)">›</button></div></div>
+ <div class="seg"><button class="btn${mAvg==='day'?' on':''}" onclick="setAvg('day')">Daily</button><button class="btn${mAvg==='week'?' on':''}" onclick="setAvg('week')">Weekly Average</button><button class="btn${mAvg==='month'?' on':''}" onclick="setAvg('month')">Monthly Average</button></div>
+ ${isAvg?`<div class="sub" style="margin:-4px 20px 12px;font-size:11px">Days with nothing logged are skipped, so the average only uses the days you tracked.</div>`:''}
+ ${empty?`<div class="card"><div class="empty">No days logged in this period.</div></div>`:''}
+ <div class="card"><div class="ct">Main macros${isAvg?' · avg per day':''}</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">${box('Calories',t.cal.toFixed(1),'kcal',g.cal)}${box('Protein',t.protein.toFixed(1),'g',g.protein)}${box('Carbs',t.carbs.toFixed(1),'g',g.carbs)}${box('Fat',t.fat.toFixed(1),'g',g.fat)}${box('Sugar',t.sugar.toFixed(1),'g','&lt;'+g.sugar)}${box('Fiber',t.fiber.toFixed(1),'g',g.fiber)}${box('Sodium',Math.round(t.sodium),'mg','&lt;'+g.sodium,'grid-column:1/-1')}</div>
+  <div style="margin-top:14px">${bar('Sodium (limit)',t.sodium,g.sodium,'mg','var(--a)',1)}<div class="sub" style="font-size:11px;margin-top:-6px">${Math.round(sodP)}% of limit · ≈ ${r2(t.sodium*2.5/1000)} g salt</div></div></div>
  <div class="card"><div class="row between"><div class="sub syncst" style="flex:1;font-size:11px">Fill missing vitamins, minerals and amino acids from USDA.</div><button class="btn a2" onclick="syncMicros()">Sync</button></div></div>
  ${miss.length?`<div class="card" style="border-color:rgba(240,200,100,.3)"><div class="sub">No micro/amino data for: ${miss.map(esc).join(', ')}. Not counted below. Use Sync micros in Foods.</div></div>`:''}
- <div class="card"><div class="ct">Vitamins &amp; minerals</div><div class="mg">${MIC.map(m=>nb(m[1],t[m[0]],m[3],m[2])).join('')}</div></div>
- <div class="card"><div class="row between" style="margin-bottom:12px"><span class="ct" style="margin:0">Amino acids · recovery</span><span class="pill ok">BCAA ${r2(t.leu+t.ile+t.val)}g</span></div>${AMI.map(m=>nb(m[1],t[m[0]],m[3],m[2])).join('')}<div class="sub" style="font-size:11px">BCAA = leucine + isoleucine + valine. Amino targets: WHO estimates for a 55kg adult. Vitamin/mineral targets: adult female RDA (iron 18mg is for ages 19-50).</div></div>`}
+ <div class="card"><div class="ct">Vitamins &amp; minerals${isAvg?' · avg per day':''}</div><div class="mg">${MIC.map(m=>nb(m[1],t[m[0]],m[3],m[2])).join('')}</div></div>
+ <div class="card"><div class="row between" style="margin-bottom:12px"><span class="ct" style="margin:0">Amino acids · recovery${isAvg?' · avg':''}</span><span class="pill ok">BCAA ${r2(t.leu+t.ile+t.val)}g</span></div>${AMI.map(m=>nb(m[1],t[m[0]],m[3],m[2])).join('')}<div class="sub" style="font-size:11px">BCAA = leucine + isoleucine + valine. Amino targets: WHO estimates for a 55kg adult. Vitamin/mineral targets: adult female RDA (iron 18mg is for ages 19-50).</div></div>`}
 
 // ═════ WEIGHT ═════
 function line(id,pts,col){const c=$(id),d=devicePixelRatio||1,W=c.parentElement.clientWidth-34,H=150;c.width=W*d;c.height=H*d;c.style.width=W+'px';c.style.height=H+'px';
@@ -402,14 +433,14 @@ function logWeight(){const kg=parseFloat($('w-kg').value),date=$('w-date').value
 function delWeight(d){state.weights=state.weights.filter(w=>w.date!==d);save();renderWeight()}
 
 // ═════ GOALS ═════
-function renderGoals(){const g=state.goals,L=[['cal','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbs (g)'],['fat','Fat (g)'],['sugar','Sugar limit (g)'],['fiber','Fiber (g)']];
+function renderGoals(){const g=state.goals,L=[['cal','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbs (g)'],['fat','Fat (g)'],['sugar','Sugar limit (g)'],['fiber','Fiber (g)'],['sodium','Sodium limit (mg)']];
  $('s-goals').innerHTML=`<div class="hd"><div><h1>Goals</h1><div class="sub">Daily targets and backend</div></div></div>
  <div class="card"><div class="ct">Daily targets</div><div class="g2">${L.map(a=>`<div><label>${a[1]}</label><input class="in" id="g_${a[0]}" oninput="saveGoals(true)" type="number" inputmode="decimal" value="${g[a[0]]}"></div>`).join('')}</div>
  <div class="sub" style="margin-top:12px;font-size:11px">Micronutrient bars use adult female daily values (Vit C 75mg, K 90µg, iron 18mg, etc). Amino acid targets are for 55kg.</div>
  <button class="btn w" onclick="resetGoals()">Reset to 55 kg female defaults</button></div>
  <div class="card"><div class="ct">USDA FoodData Central</div><label>API key</label><input class="in" id="g_key" value="${esc(state.apiKey)}"><div class="sub" style="margin-top:8px;font-size:11px">DEMO_KEY is heavily rate limited. Get a free key at fdc.nal.usda.gov/api-key-signup and paste it here.</div>
  <button class="btn p" onclick="saveGoals()">Save &amp; go to Today</button></div>`}
-function saveGoals(q){['cal','protein','carbs','fat','sugar','fiber'].forEach(k=>{const v=parseFloat($('g_'+k).value);if(v>0)state.goals[k]=v});state.apiKey=$('g_key').value.trim()||'DEMO_KEY';save();if(!q){toast('Goals saved');tab('today')}}
+function saveGoals(q){['cal','protein','carbs','fat','sugar','fiber','sodium'].forEach(k=>{const v=parseFloat($('g_'+k).value);if(v>0)state.goals[k]=v});state.apiKey=$('g_key').value.trim()||'DEMO_KEY';save();if(!q){toast('Goals saved');tab('today')}}
 function resetGoals(){state.goals={...DEF};save();renderGoals();toast('Goals reset')}
 
 load();renderToday();
